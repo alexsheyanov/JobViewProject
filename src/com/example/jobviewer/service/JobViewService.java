@@ -13,18 +13,23 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.example.jobviewer.MainActivity;
+import com.example.jobviewer.model.Job;
+
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
-import android.widget.Toast;
 
 public class JobViewService extends Service{
 	
-	private String urlString = "http://www.healthitjobs.com/hit.healthitjobs.services_deploy/" +
-			"jobprocessservice.svc/searchjobs?start=0&len=20&q=0:0:0:0:0:0:0:0";
-	private InputStream inputStream;
-	private Toast toast;
+	private String urlString = "http://www.healthitjobs.com/hit.healthitjobs.services_deploy/jobprocessservice.svc/searchjobs?start=0&len=20&q=0:0:0:0:0:0:0:0";
+	@SuppressWarnings("unused")
+	private ArrayList<Job> jobItems = null;
+	private InputStream inputStream = null;
+	private HttpURLConnection httpUrl = null;
+	private BufferedReader bufReader = null;
+	private Thread parseThread = null;
 
 	@Override
 	public IBinder onBind(Intent intent) {	
@@ -32,36 +37,46 @@ public class JobViewService extends Service{
 	}
 	@Override
 	public void onCreate(){
-		if(getHttpConnection() != null){
-			inputStream = getHttpConnection();
-			toast = Toast.makeText(getBaseContext(), "HttpUrlConnection - success!",Toast.LENGTH_SHORT);
-			toast.show();
-		}else{
-			toast = Toast.makeText(getBaseContext(), "HttpUrlConnection - failed!",Toast.LENGTH_SHORT);
-			toast.show();
-			stopSelf();
-		}
+		super.onCreate();
+		parseThread = new Thread(new Runnable(){
+			public void run() {
+				try {
+				Log.d("MyDebug","parseThread start");
+				jobItems = parseJSONString(loadJSONString(getHttpConnection()));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 	@Override
-	public void onStart(Intent intent, int startId){
-		if(parseJSONString(loadJSONString(inputStream)) !=null){
-			toast = Toast.makeText(getBaseContext(), "parseJSON - success!",Toast.LENGTH_SHORT);
-			toast.show();
-		}else{
-			toast = Toast.makeText(getBaseContext(), "parseJSON - Failed!!",Toast.LENGTH_SHORT);
-			toast.show();
-			stopSelf();
-		}
+	public int onStartCommand(Intent intent,int flags, int startId){
+		parseThread.start();
+		return START_STICKY;
 	}
+	@SuppressWarnings("deprecation")
 	@Override
 	public void onDestroy(){
-		
+		super.onDestroy();
+		Log.d("MyDebug", "Destroy service");
+		try{
+			if(parseThread.isAlive())
+				parseThread.stop();
+			if(httpUrl != null)
+				httpUrl.disconnect();
+			if(bufReader != null)
+				bufReader.close();
+			if(inputStream != null)
+			inputStream.close();
+		}catch(IOException exc){
+			exc.printStackTrace();
+		}
 	}
 	
 	private InputStream getHttpConnection(){
 		try {
 			URL connUrl = new URL(urlString);
-			HttpURLConnection httpUrl = (HttpURLConnection) connUrl.openConnection();
+			httpUrl = (HttpURLConnection) connUrl.openConnection();
 			httpUrl.setRequestMethod("GET");
 			httpUrl.connect();
 			
@@ -77,14 +92,13 @@ public class JobViewService extends Service{
 		return null;
 	}
 	private String loadJSONString(InputStream inStream){
-		BufferedReader bufReader = new BufferedReader(new InputStreamReader(inStream));
+		bufReader = new BufferedReader(new InputStreamReader(inStream));
 		StringBuilder strBuilder = new StringBuilder();
 		String line = null;
 			try {
 				while((line = bufReader.readLine()) != null){
 					strBuilder.append(line);
 				}
-				bufReader.close();
 				return strBuilder.toString();
 			} catch (IOException exc) {
 				Log.d("MyDebug", "GetJSONString Exception");
@@ -92,20 +106,32 @@ public class JobViewService extends Service{
 			}
 		return null;
 	}
-	private ArrayList<String> parseJSONString(String JSONString){
-		ArrayList<String> jobItems = new ArrayList<String>();
+	private ArrayList<Job> parseJSONString(String JSONString){
+		ArrayList<Job> jobItems = new ArrayList<Job>();
 		try {
 			JSONObject jObject = new JSONObject(JSONString);
 			JSONArray jArray = jObject.getJSONArray("Jobs");
 				for(int i = 0;i<jArray.length();i++){
-					jobItems.add(jArray.getJSONObject(i).getString("Title").toString());
+					jobItems.add(convertData(jArray.getJSONObject(i)));
 				}
+				
+				Intent in = new Intent(MainActivity.BROADCAST_ACTION);
+					in.putExtra("Status", 1);
+					in.putParcelableArrayListExtra("Jobs", jobItems);
+					sendBroadcast(in);
+					
 				return jobItems;
 		} catch (JSONException exc) {
 			Log.d("MyDebug","JSONException");
 			exc.printStackTrace();
 		}
 		return null;
+	}
+	private Job convertData(JSONObject jObject) throws JSONException{
+		String title = jObject.getString("Title");
+		String date = jObject.getString("ExpiresDate");
+		String description = jObject.getString("Description");
+		return new Job(title,date,description);
 	}
 
 }
