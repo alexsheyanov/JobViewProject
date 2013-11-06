@@ -66,22 +66,22 @@ public class JobAdapter	extends BaseAdapter {
 		switch(getItemViewType(position)){
 			case WHITE:
 				((TextView) view.findViewById(R.id.tv_title)).setText(job.getTitle());
-				((TextView) view.findViewById(R.id.tv_title)).setBackgroundColor(Color.WHITE);
 				((TextView) view.findViewById(R.id.tv_date)).setText(job.getDate());
-				((TextView) view.findViewById(R.id.tv_date)).setBackgroundColor(Color.WHITE);
 				((TextView) view.findViewById(R.id.tv_description)).setText(job.getDescription());
-				((TextView) view.findViewById(R.id.tv_description)).setBackgroundColor(Color.WHITE);
+				view.setBackgroundColor(Color.WHITE);
 			break;
 		case GRAY:
 			((TextView) view.findViewById(R.id.tv_title)).setText(job.getTitle());
-			((TextView) view.findViewById(R.id.tv_title)).setBackgroundColor(Color.LTGRAY);
 			((TextView) view.findViewById(R.id.tv_date)).setText(job.getDate());
-			((TextView) view.findViewById(R.id.tv_date)).setBackgroundColor(Color.LTGRAY);
 			((TextView) view.findViewById(R.id.tv_description)).setText(job.getDescription());
-			((TextView) view.findViewById(R.id.tv_description)).setBackgroundColor(Color.LTGRAY);
+			view.setBackgroundColor(Color.LTGRAY);
 			break;
 		}
 		
 		return view;
+	}
+
+	public void setVacations(ArrayList<Job> vacations) {
+		this.vacations = vacations;
 	}		
 }

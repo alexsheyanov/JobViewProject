@@ -18,14 +18,14 @@ import com.example.jobviewer.model.Job;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 
 public class JobViewService extends Service{
 	
-	private String urlString = "http://www.healthitjobs.com/hit.healthitjobs.services_deploy/jobprocessservice.svc/searchjobs?start=0&len=20&q=0:0:0:0:0:0:0:0";
-	@SuppressWarnings("unused")
-	private ArrayList<Job> jobItems = null;
+	private String urlString = "http://www.healthitjobs.com/" +
+			"hit.healthitjobs.services_deploy/jobprocessservice.svc/" +
+			"searchjobs?start=0&len=20&q=0:0:0:0:0:0:0:0";
 	private InputStream inputStream = null;
 	private HttpURLConnection httpUrl = null;
 	private BufferedReader bufReader = null;
@@ -41,8 +41,7 @@ public class JobViewService extends Service{
 		parseThread = new Thread(new Runnable(){
 			public void run() {
 				try {
-				Log.d("MyDebug","parseThread start");
-				jobItems = parseJSONString(loadJSONString(getHttpConnection()));
+					parseJSONString(loadJSONString(getHttpConnection()));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -58,7 +57,6 @@ public class JobViewService extends Service{
 	@Override
 	public void onDestroy(){
 		super.onDestroy();
-		Log.d("MyDebug", "Destroy service");
 		try{
 			if(parseThread.isAlive())
 				parseThread.stop();
@@ -67,7 +65,7 @@ public class JobViewService extends Service{
 			if(bufReader != null)
 				bufReader.close();
 			if(inputStream != null)
-			inputStream.close();
+				inputStream.close();
 		}catch(IOException exc){
 			exc.printStackTrace();
 		}
@@ -75,7 +73,7 @@ public class JobViewService extends Service{
 	
 	private InputStream getHttpConnection(){
 		try {
-			URL connUrl = new URL(urlString);
+			final URL connUrl = new URL(urlString);
 			httpUrl = (HttpURLConnection) connUrl.openConnection();
 			httpUrl.setRequestMethod("GET");
 			httpUrl.connect();
@@ -83,17 +81,15 @@ public class JobViewService extends Service{
 			return httpUrl.getInputStream();
 
 		} catch (MalformedURLException exc) {
-			Log.d("MyDebug", "URL Exception!");
 			exc.printStackTrace();
 		} catch (IOException exc){
-			Log.d("MyDebug","IOException");
 			exc.printStackTrace();
 		}
 		return null;
 	}
 	private String loadJSONString(InputStream inStream){
 		bufReader = new BufferedReader(new InputStreamReader(inStream));
-		StringBuilder strBuilder = new StringBuilder();
+		final StringBuilder strBuilder = new StringBuilder();
 		String line = null;
 			try {
 				while((line = bufReader.readLine()) != null){
@@ -101,37 +97,34 @@ public class JobViewService extends Service{
 				}
 				return strBuilder.toString();
 			} catch (IOException exc) {
-				Log.d("MyDebug", "GetJSONString Exception");
 				exc.printStackTrace();
 			}
 		return null;
 	}
-	private ArrayList<Job> parseJSONString(String JSONString){
-		ArrayList<Job> jobItems = new ArrayList<Job>();
+	private void parseJSONString(String JSONString){
+		final ArrayList<Job> jobItems = new ArrayList<Job>();
 		try {
-			JSONObject jObject = new JSONObject(JSONString);
-			JSONArray jArray = jObject.getJSONArray("Jobs");
+			final JSONObject jObject = new JSONObject(JSONString);
+			final JSONArray jArray = jObject.getJSONArray("Jobs");
 				for(int i = 0;i<jArray.length();i++){
 					jobItems.add(convertData(jArray.getJSONObject(i)));
 				}
 				
-				Intent in = new Intent(MainActivity.BROADCAST_ACTION);
-					in.putExtra("Status", 1);
-					in.putParcelableArrayListExtra("Jobs", jobItems);
+				final Intent in = new Intent(MainActivity.BROADCAST_ACTION);
+				final Bundle bundle = new Bundle();
+					bundle.putInt("Status", 1);
+					bundle.putParcelableArrayList("Jobs", jobItems);
+					in.putExtra("Bundle", bundle);
 					sendBroadcast(in);
 					
-				return jobItems;
 		} catch (JSONException exc) {
-			Log.d("MyDebug","JSONException");
 			exc.printStackTrace();
 		}
-		return null;
 	}
 	private Job convertData(JSONObject jObject) throws JSONException{
-		String title = jObject.getString("Title");
-		String date = jObject.getString("ExpiresDate");
-		String description = jObject.getString("Description");
+		final String title = jObject.getString("Title");
+		final String date = jObject.getString("ExpiresDate");
+		final String description = jObject.getString("Description");
 		return new Job(title,date,description);
 	}
-
 }
